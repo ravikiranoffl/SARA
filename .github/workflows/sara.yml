@@ -2,7 +2,6 @@ name: SARA Archive
 
 on:
   schedule:
-    # Runs every 3 hours at minute 25
     - cron: '25 */3 * * *' 
   workflow_dispatch: 
 
@@ -35,4 +34,4 @@ jobs:
           commit_user_name: "ravikiranoffl"
           commit_user_email: "171322216+ravikiranoffl@users.noreply.github.com"
           commit_author: "ravikiranoffl <171322216+ravikiranoffl@users.noreply.github.com>"
-          file_pattern: "Archive/**/*.json"
+          file_pattern: "20*/*.json"
