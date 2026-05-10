@@ -22,7 +22,6 @@ def get_ist_time():
 
 def fetch_rss(url):
     try:
-        # Standard browser headers to prevent 403 Forbidden errors
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
         with urllib.request.urlopen(req, timeout=20) as response:
             return ET.fromstring(response.read())
@@ -32,16 +31,15 @@ def fetch_rss(url):
 
 def main():
     ist_now = get_ist_time()
-    year = ist_now.strftime("%Y")
-    month_folder = ist_now.strftime("%m-%B")
-    filename = ist_now.strftime("%d-%m-%Y.json")
     
-    # Path logic: Archive/YYYY/MM-Month/DD-MM-YYYY.json
-    dir_path = os.path.join("Archive", year, month_folder)
-    os.makedirs(dir_path, exist_ok=True)
-    full_path = os.path.join(dir_path, filename)
+    # Path logic: YYYY/yyyy-mm-dd.json (e.g., 2026/2026-05-11.json)
+    folder_name = ist_now.strftime("%Y")
+    file_name = ist_now.strftime("%Y-%m-%d.json")
+    
+    os.makedirs(folder_name, exist_ok=True)
+    full_path = os.path.join(folder_name, file_name)
 
-    # Load existing daily data to enable duplication check
+    # Load existing daily data
     daily_data = {}
     if os.path.exists(full_path):
         with open(full_path, 'r', encoding='utf-8') as f:
@@ -52,50 +50,39 @@ def main():
 
     for source, url in FEEDS.items():
         root = fetch_rss(url)
-        if root is None:
-            continue
+        if root is None: continue
         
         if source not in daily_data:
             daily_data[source] = []
 
-        # Create a set of existing titles for this specific source to prevent duplicates
+        # Headline Filter: Case-insensitive check to ignore existing news
         existing_titles = {str(item.get('Title', '')).lower().strip() for item in daily_data[source]}
 
-        # Parse XML items
         items = root.findall('.//item')
-        
         for item in items:
             t_el = item.find('title')
             l_el = item.find('link')
             d_el = item.find('description')
             p_el = item.find('pubDate')
 
-            # Strict protection against 'NoneType' errors for empty tags
             title = t_el.text.strip() if (t_el is not None and t_el.text) else ""
             link = l_el.text.strip() if (l_el is not None and l_el.text) else ""
             desc = d_el.text.strip() if (d_el is not None and d_el.text) else ""
             pub_date = p_el.text.strip() if (p_el is not None and p_el.text) else ""
 
-            # Ensure we have the basics before storing
-            if not title or not link:
-                continue
+            if not title or not link: continue
+            if title.lower() in existing_titles: continue
 
-            # DUPLICATION FILTER: Ignore if title already exists in today's log for this source
-            if title.lower() in existing_titles:
-                continue
-
-            # Store in the requested convention
+            # Convention: Title, Description, Article Url, PubDate
             daily_data[source].append({
                 "Title": title,
                 "Description": desc,
                 "Article Url": link,
                 "PubDate": pub_date
             })
-            
-            # Update the filter set for the current run
             existing_titles.add(title.lower())
 
-    # Save to file with clean formatting
+    # Save finalized JSON
     with open(full_path, 'w', encoding='utf-8') as f:
         json.dump(daily_data, f, indent=4, ensure_ascii=False)
 
